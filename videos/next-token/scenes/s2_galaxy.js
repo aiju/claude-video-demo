@@ -60,18 +60,6 @@ function buildGalaxy() {
 
 function galaxyRot(t) { return (t - 16) * 0.06; }
 
-function arrow(R, a, b, col, w, reveal, alpha = 1) {
-  if (reveal <= 0) return;
-  const tip = vlerp(a, b, reveal);
-  R.line(a, tip, col, col, w, alpha * 0.5, alpha);
-  const dir = vnorm(vsub(b, a));
-  const view = vnorm(vsub(tip, R.cam.pos));
-  const side = vnorm(vcross(dir, view));
-  const hl = 0.28;
-  R.line(tip, vadd(tip, vadd(vscale(dir, -hl), vscale(side, hl * 0.55))), col, col, w, alpha);
-  R.line(tip, vadd(tip, vadd(vscale(dir, -hl), vscale(side, -hl * 0.55))), col, col, w, alpha);
-}
-
 function sceneGalaxy(R, t) {
   if (!GALAXY) buildGalaxy();
   const S = SCORE, E = R.env, P = R.post;
@@ -150,7 +138,7 @@ function sceneGalaxy(R, t) {
       const h = heroAt(i);
       const lab = PROMPT_TOKENS[i].text;
       const size = mix(1.15, 0.62, heroFly);
-      drawChip(R, lab, vadd(h, vscale(camUp, mix(1.2, 0, heroFly))), size, TOKEN_COLS[i], sstep(22.2 + i * 0.08, 22.5 + i * 0.08, t));
+      tokChip(R, lab, vadd(h, vscale(camUp, mix(1.2, 0, heroFly))), size, TOKEN_COLS[i], sstep(22.2 + i * 0.08, 22.5 + i * 0.08, t));
     }
     burst(R, heroAt(2), t, 22.9, { n: 40, speed: 8, life: 1, colors: TOKEN_COLS, seed: 77 });
   }

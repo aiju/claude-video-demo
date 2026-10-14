@@ -44,7 +44,7 @@ function sceneTokens(R, t) {
   const textW = R.measure(PROMPT, 'mono');
   const tokStartX = []; let acc = 0;
   PROMPT_TOKENS.forEach((tok) => { tokStartX.push(-textW / 2 + acc + R.measure(tok.text, 'mono') / 2); acc += R.measure(tok.text, 'mono'); });
-  const chipXs = chipRow(R, PROMPT_TOKENS.map((x) => x.text), TOK_SIZE, 0.75);
+  const chipXs = tokChipRow(R, PROMPT_TOKENS.map((x) => x.text), TOK_SIZE, 0.75);
   const spread = ease.inOutCubic(range(t, 6, 7.9)) * 0.3;
   const chipT = ease.outBack(range(t, 8, 8.45), 1.4);
   const chipY = mix(0, 2.35, ease.inOutCubic(range(t, 9.6, 11.0)));
@@ -129,7 +129,7 @@ function sceneTokens(R, t) {
       let p = chipPos(ti);
       const kickBob = kick * 0.08;
       const sw = swirlPos(p, ti * 7, t, swirl);
-      drawChip(R, tok.text, sw, TOK_SIZE * (1 + kickBob) * (1 - swirl * 0.6), col, 1 - swirl * 0.7, { glow: 0.6 });
+      tokChip(R, tok.text, sw, TOK_SIZE * (1 + kickBob) * (1 - swirl * 0.6), col, 1 - swirl * 0.7, { glow: 0.6 });
 
       // Token id with a decode effect, synced to the blips.
       const tId = S.times.blip[ti];

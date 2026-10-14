@@ -382,6 +382,7 @@ class Renderer {
   }
 
   resetFrameState() {
+    for (const k in this.layers || {}) { const L = this.layers[k]; L.sprites.count = L.lines.count = L.glyphs.count = 0; }
     this.env = {
       baseA: [0.004, 0.005, 0.012], baseB: [0.0, 0.0, 0.002],
       nebula: 0, nebA: hex('#3a1c71'), nebB: hex('#0f6e8c'), stars: 0,
@@ -432,7 +433,7 @@ class Renderer {
   measure(str, font = 'mono', tracking = 0) {
     let w = 0;
     for (const ch of str) {
-      const g = this.atlas.glyphs.get(font + ch) || this.atlas.glyphs.get(font + '?');
+      const g = this.atlas.get(font, ch);
       w += (g ? g.adv : 0.6) + tracking;
     }
     return Math.max(0, w - tracking);
@@ -450,12 +451,12 @@ class Renderer {
     const s = this._fxs || (this._fxs = {});
     for (let i = 0; i < chars.length; i++) {
       let ch = chars[i];
-      const base = this.atlas.glyphs.get(font + ch) || this.atlas.glyphs.get(font + '?');
+      const base = this.atlas.get(font, ch);
       const adv = base ? base.adv : 0.6;
       s.ch = ch; s.dx = 0; s.dy = 0; s.dz = 0; s.scale = 1; s.alpha = 1; s.color = color; s.rot = 0; s.glow = glow;
       if (o.fx) o.fx(i, ch, s, chars.length);
       ch = s.ch;
-      const g = ch === ' ' ? null : (this.atlas.glyphs.get(font + ch) || base);
+      const g = ch === ' ' ? null : (this.atlas.get(font, ch) || base);
       if (g && s.alpha > 0.001 && s.scale > 0) {
         const off = b.alloc(), d = b.data;
         const sc = s.scale;
@@ -505,6 +506,7 @@ class Renderer {
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
     // Batched layers.
+    if (this.atlas) this.atlas.flush();
     gl.enable(gl.BLEND);
     for (const name of this.order) {
       const L = this.layers[name];

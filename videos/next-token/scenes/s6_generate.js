@@ -16,8 +16,8 @@ function sceneGenerate(R, t) {
   const all = PROMPT_TOKENS.map((x) => x.text).concat(GENERATED);
   const nVis = 5 + (lastIndex(APPEND_TIMES, t) + 1);
   const texts = all.slice(0, nVis);
-  const xs = chipRow(R, texts, GEN_SIZE, 0.32);
-  const fullXs = chipRow(R, all, GEN_SIZE, 0.32);
+  const xs = tokChipRow(R, texts, GEN_SIZE, 0.32);
+  const fullXs = tokChipRow(R, all, GEN_SIZE, 0.32);
   const lastX = xs[xs.length - 1];
 
   // ---- camera ----
@@ -53,7 +53,7 @@ function sceneGenerate(R, t) {
       const p = chipPos(i);
       const ta = isGen ? APPEND_TIMES[i - 5] : 0;
       const f = isGen ? pulse([ta], t, 5) : 0;
-      drawChip(R, all[i], p, GEN_SIZE * (1 + f * 0.25), col, sentenceA, { outline: 1.1 + f * 2 + kick * 0.3, glow: 0.5 + f });
+      tokChip(R, all[i], p, GEN_SIZE * (1 + f * 0.25), col, sentenceA, { outline: 1.1 + f * 2 + kick * 0.3, glow: 0.5 + f });
       if (isGen) {
         shockwave(R, [fullXs[i], 0, 0], t, ta + 0.1, { size: 2.2, life: 0.4, color: col, alpha: 0.6 });
         burst(R, p, t, ta, { n: 24, speed: 5, life: 0.8, color: col, seed: 600 + i });

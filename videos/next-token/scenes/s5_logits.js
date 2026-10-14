@@ -72,7 +72,7 @@ function sceneLogits(R, t) {
         R.text(tokenLabel(CANDIDATES[c].text), vadd(B0, [0, 0.45, 0]), 0.42, cmix(col, COL.white, 0.4), { alpha: sstep(46.7, 47.0, t) * (1 - fly * 2), glow: 0.6, fx: decodeFx(t, 46.7 + c * 0.06, 0.2, 0.03, c) });
       }
       if (fly >= 1) {
-        drawChip(R, CANDIDATES[c].text, [CHART_X - 1.6, ROW_Y(c), 0], 0.58, col, dimLose * out, { outline: 1 + hl * 1.5 + win * 2 });
+        tokChip(R, CANDIDATES[c].text, [CHART_X - 1.6, ROW_Y(c), 0], 0.58, col, dimLose * out, { outline: 1 + hl * 1.5 + win * 2 });
         const pct = Math.round(CANDIDATES[c].p * 100 * ease.outCubic(range(t, 48.5, 49.1)));
         R.text(pct + '%', [B1[0] + 0.3, ROW_Y(c), 0], 0.44, cmix(col, COL.white, 0.5), { align: -1, alpha: dimLose * out, glow: 0.5 });
       }
@@ -121,7 +121,7 @@ function sceneLogits(R, t) {
   if (t > 51.05) {
     const u = ease.outBack(range(t, 51.05, 51.45), 1.6);
     const p = vlerp([CHART_X - 1.6, ROW_Y(0), 0], [0, 0, 2], ease.inOutCubic(range(t, 51.05, 51.5)));
-    drawChip(R, CANDIDATES[0].text, p, mix(0.58, 1.3, u), GEN_COL, 1, { outline: 2.5, glow: 0.9 });
+    tokChip(R, CANDIDATES[0].text, p, mix(0.58, 1.3, u), GEN_COL, 1, { outline: 2.5, glow: 0.9 });
     R.sprite(p, 3 + kick, GEN_COL, 0.7, 0);
   }
 

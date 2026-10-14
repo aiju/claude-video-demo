@@ -1,8 +1,13 @@
 'use strict';
-// Soundtrack synthesis. Drums and effects are synthesized sample-by-sample in JS;
-// tonal parts are WebAudio oscillators driven by automation. Everything renders
-// once into an AudioBuffer through an OfflineAudioContext, so playback is
-// sample-accurate and seekable.
+// Soundtrack synthesis. Drums and effects are synthesized sample-by-sample in JS
+// and mixed into stems; tonal parts are WebAudio oscillators driven by
+// automation. Everything renders once into an AudioBuffer through an
+// OfflineAudioContext, so playback is sample-accurate and seekable.
+// Input is a score from ScoreBuilder (kit/music.js). Tracks it plays:
+//   drums: kick snare clap hat ohat crash      fx: impact subdrop riser reverse whoosh glitch
+//   ui:    type tick blip ding pluck           tonal: bass arp lead (+ pads from chordTL, drone)
+// Bump SYNTH_VERSION when changing synthesis so cached renders are discarded.
+const SYNTH_VERSION = 1;
 
 const SR = 44100;
 
@@ -268,9 +273,27 @@ function makeIR(ctx, dur = 3.2, decay = 2.6) {
   return ir;
 }
 
-// Render the whole soundtrack. Returns a Promise<AudioBuffer>.
-async function renderSoundtrack(S = SCORE, onProgress = () => {}) {
-  const ctx = new OfflineAudioContext(2, Math.ceil((DURATION + 0.5) * SR), SR);
+// Default levels and voices; a score can override any of them via score.mix / score.voices.
+const DEFAULT_MIX = {
+  kick: 0.95, snare: 0.5, clap: 0.55, hat: 0.32, ohat: 0.26, crash: 0.38,
+  riser: 0.32, reverse: 0.35, impact: 0.75, subdrop: 0.7, whoosh: 0.5, glitch: 0.28,
+  type: 0.5, tick: 0.35, blip: 0.32, ding: 0.42, pluck: 0.5, pads: 0.05,
+  master: 0.72, music: 0.9, drums: 0.85, sfx: 0.8, reverb: 0.55, delay: 0.5,
+};
+const DEFAULT_VOICES = {
+  bass: { oscs: [['sawtooth', 0, 0.6], ['square', 7, 0.35], ['sine', 0, 0.9, -1]], q: 5, cutBase: 160, cutPeak: 1900, fDecay: 0.07, sustain: 0.8, release: 0.03, gain: 0.34 },
+  arp: { oscs: [['square', -6, 0.5], ['sawtooth', 6, 0.5]], q: 6, cutBase: 500, cutPeak: 5200, fDecay: 0.06, sustain: 0.35, release: 0.04, gain: 0.11, rev: 0.35, del: 0.55, sweep: 'arpCut' },
+  lead: { oscs: [['sawtooth', -11, 0.4], ['sawtooth', 0, 0.4], ['sawtooth', 12, 0.4], ['square', 0, 0.2, -1]], q: 1.5, cutBase: 1400, cutPeak: 5200, fDecay: 0.25, attack: 0.006, sustain: 0.8, release: 0.12, gain: 0.13, glide: 0.018, rev: 0.5, del: 0.45, vibrato: 9 },
+};
+
+// Render the whole soundtrack for a score. Returns a Promise<AudioBuffer>.
+async function renderSoundtrack(S, onProgress = () => {}) {
+  const DUR = S.duration, BEAT_S = S.beat || 0.5;
+  const M = Object.assign({}, DEFAULT_MIX, S.mix || {});
+  const V = {};
+  for (const k in DEFAULT_VOICES) V[k] = Object.assign({}, DEFAULT_VOICES[k], (S.voices || {})[k] || {});
+  const ev = (k) => S[k] || [];
+  const ctx = new OfflineAudioContext(2, Math.ceil((DUR + 0.5) * SR), SR);
   const toBuffer = (chans) => {
     const b = ctx.createBuffer(chans.length, chans[0].length, SR);
     chans.forEach((c, i) => b.copyToChannel(c, i));
@@ -280,35 +303,35 @@ async function renderSoundtrack(S = SCORE, onProgress = () => {}) {
   // ---- buses ----
   const limiter = ctx.createDynamicsCompressor();
   limiter.threshold.value = -2.5; limiter.knee.value = 0; limiter.ratio.value = 20; limiter.attack.value = 0.002; limiter.release.value = 0.09;
-  const master = ctx.createGain(); master.gain.value = 0.72;
+  const master = ctx.createGain(); master.gain.value = M.master;
   const glue = ctx.createDynamicsCompressor();
   glue.threshold.value = -16; glue.knee.value = 8; glue.ratio.value = 2.5; glue.attack.value = 0.012; glue.release.value = 0.2;
   glue.connect(master).connect(limiter).connect(ctx.destination);
 
-  const music = ctx.createGain(); music.gain.value = 0.9; music.connect(glue);
+  const music = ctx.createGain(); music.gain.value = M.music; music.connect(glue);
   const duck = ctx.createGain(); duck.connect(music);
-  const drums = ctx.createGain(); drums.gain.value = 0.85; drums.connect(glue);
-  const sfx = ctx.createGain(); sfx.gain.value = 0.8; sfx.connect(glue);
+  const drums = ctx.createGain(); drums.gain.value = M.drums; drums.connect(glue);
+  const sfx = ctx.createGain(); sfx.gain.value = M.sfx; sfx.connect(glue);
 
   const reverb = ctx.createConvolver(); reverb.buffer = makeIR(ctx);
   const revSend = ctx.createGain(); revSend.gain.value = 1; revSend.connect(reverb);
-  const revRet = ctx.createGain(); revRet.gain.value = 0.55; reverb.connect(revRet).connect(duck);
+  const revRet = ctx.createGain(); revRet.gain.value = M.reverb; reverb.connect(revRet).connect(duck);
 
   // Ping-pong delay at a dotted eighth.
   const dIn = ctx.createGain(); dIn.gain.value = 0.5;
   const dL = ctx.createDelay(1), dR = ctx.createDelay(1);
-  dL.delayTime.value = BEAT * 0.75; dR.delayTime.value = BEAT * 0.75;
+  dL.delayTime.value = BEAT_S * 0.75; dR.delayTime.value = BEAT_S * 0.75;
   const fb = ctx.createGain(); fb.gain.value = 0.42;
   const dLP = ctx.createBiquadFilter(); dLP.type = 'lowpass'; dLP.frequency.value = 3800;
   const merge = ctx.createChannelMerger(2);
   dIn.connect(dL); dL.connect(dR); dR.connect(fb).connect(dLP).connect(dL);
   dL.connect(merge, 0, 0); dR.connect(merge, 0, 1);
-  const dRet = ctx.createGain(); dRet.gain.value = 0.5; merge.connect(dRet).connect(duck);
+  const dRet = ctx.createGain(); dRet.gain.value = M.delay; merge.connect(dRet).connect(duck);
   dRet.connect(revSend);
 
   // Sidechain pump on every strong kick.
   duck.gain.setValueAtTime(1, 0);
-  for (const t of S.duck) { duck.gain.setTargetAtTime(0.32, t, 0.004); duck.gain.setTargetAtTime(1, t + 0.04, 0.09); }
+  for (const t of S.duck || []) { duck.gain.setTargetAtTime(0.32, t, 0.004); duck.gain.setTargetAtTime(1, t + 0.04, 0.09); }
 
   // ---- one-shots: mixed straight into stereo stems in JS (fast, no graph overhead) ----
   const LEN = ctx.length;
@@ -331,26 +354,26 @@ async function renderSoundtrack(S = SCORE, onProgress = () => {}) {
   };
   const D = {}; for (const k in DRUMS) D[k] = DRUMS[k]();
   onProgress(0.1);
-  for (const e of S.kick) play(D.kick, e.t, 0.95 * e.v, drumStem);
-  for (const e of S.snare) play(D.snare, e.t, 0.5 * e.v, drumStem, { rev: 0.25 });
-  for (const e of S.clap) play(D.clap, e.t, 0.55 * e.v, drumStem, { rev: 0.35 });
-  for (const e of S.hat) play(D.hat, e.t, 0.32 * e.v, drumStem, { pan: 0.25 });
-  for (const e of S.ohat) play(D.ohat, e.t, 0.26 * e.v, drumStem, { pan: -0.2 });
-  for (const e of S.crash) play(D.crash, e.t, 0.38 * e.v, drumStem, { rev: 0.3 });
+  for (const e of ev('kick')) play(D.kick, e.t, M.kick * e.v, drumStem);
+  for (const e of ev('snare')) play(D.snare, e.t, M.snare * e.v, drumStem, { rev: 0.25 });
+  for (const e of ev('clap')) play(D.clap, e.t, M.clap * e.v, drumStem, { rev: 0.35 });
+  for (const e of ev('hat')) play(D.hat, e.t, M.hat * e.v, drumStem, { pan: 0.25 });
+  for (const e of ev('ohat')) play(D.ohat, e.t, M.ohat * e.v, drumStem, { pan: -0.2 });
+  for (const e of ev('crash')) play(D.crash, e.t, M.crash * e.v, drumStem, { rev: 0.3 });
 
   const cache = new Map();
   const fx = (key, fn) => { if (!cache.has(key)) cache.set(key, fn()); return cache.get(key); };
-  for (const e of S.riser) play(fx('riser' + e.dur, () => FX.riser(e.dur)), e.t, 0.32 * e.v, sfxStem, { rev: 0.4 });
-  for (const e of S.reverse) play(fx('rev' + e.dur, () => FX.reverse(e.dur)), e.t, 0.35, sfxStem, { rev: 0.2 });
-  for (const e of S.impact) play(fx('impact', FX.impact), e.t, 0.75 * e.v, sfxStem, { rev: 0.6 });
-  for (const e of S.subdrop) play(fx('subdrop', FX.subdrop), e.t, 0.7, sfxStem);
-  for (const e of S.whoosh) play(fx('wh' + e.dur + e.pan, () => FX.whoosh(e.dur, e.pan)), e.t, 0.5 * e.v, sfxStem, { rev: 0.3 });
-  S.glitch.forEach((e, i) => play(fx('gl' + i, () => FX.glitch(e.dur, 40 + i)), e.t, 0.28, sfxStem, { del: 0.3 }));
-  S.type.forEach((e, i) => play(fx('click' + (i % 6), () => FX.click(50 + (i % 6))), e.t, 0.5, sfxStem, { pan: (hash1(i) - 0.5) * 0.6, rev: 0.15 }));
-  for (const e of S.tick) play(fx('tick', FX.tick), e.t, 0.35, sfxStem, { rev: 0.2 });
-  for (const e of S.blip) play(fx('blip' + e.note, () => FX.blip(e.note)), e.t, 0.32 * e.v, sfxStem, { del: 0.6, rev: 0.3, pan: (hash1(e.note * 7 + Math.round(e.t * 8)) - 0.5) * 0.8 });
-  for (const e of S.ding) play(fx('ding' + e.note + !!e.chord, () => FX.ding(e.note, e.chord)), e.t, 0.42 * e.v, sfxStem, { rev: 0.6, del: 0.3 });
-  for (const e of S.pluck) play(fx('pluck' + e.note, () => FX.pluck(e.note)), e.t, 0.5 * e.v, sfxStem, { rev: 0.4, del: 0.4 });
+  for (const e of ev('riser')) play(fx('riser' + e.dur, () => FX.riser(e.dur)), e.t, M.riser * (e.v ?? 1), sfxStem, { rev: 0.4 });
+  for (const e of ev('reverse')) play(fx('rev' + e.dur, () => FX.reverse(e.dur)), e.t, M.reverse, sfxStem, { rev: 0.2 });
+  for (const e of ev('impact')) play(fx('impact', FX.impact), e.t, M.impact * (e.v ?? 1), sfxStem, { rev: 0.6 });
+  for (const e of ev('subdrop')) play(fx('subdrop', FX.subdrop), e.t, M.subdrop, sfxStem);
+  for (const e of ev('whoosh')) play(fx('wh' + e.dur + e.pan, () => FX.whoosh(e.dur, e.pan ?? 0)), e.t, M.whoosh * (e.v ?? 1), sfxStem, { rev: 0.3 });
+  ev('glitch').forEach((e, i) => play(fx('gl' + i, () => FX.glitch(e.dur, 40 + i)), e.t, M.glitch, sfxStem, { del: 0.3 }));
+  ev('type').forEach((e, i) => play(fx('click' + (i % 6), () => FX.click(50 + (i % 6))), e.t, M.type, sfxStem, { pan: (hash1(i) - 0.5) * 0.6, rev: 0.15 }));
+  for (const e of ev('tick')) play(fx('tick', FX.tick), e.t, M.tick, sfxStem, { rev: 0.2 });
+  for (const e of ev('blip')) play(fx('blip' + e.note, () => FX.blip(e.note)), e.t, M.blip * (e.v ?? 1), sfxStem, { del: 0.6, rev: 0.3, pan: (hash1(e.note * 7 + Math.round(e.t * 8)) - 0.5) * 0.8 });
+  for (const e of ev('ding')) play(fx('ding' + e.note + !!e.chord, () => FX.ding(e.note, e.chord)), e.t, M.ding * (e.v ?? 1), sfxStem, { rev: 0.6, del: 0.3 });
+  for (const e of ev('pluck')) play(fx('pluck' + e.note, () => FX.pluck(e.note)), e.t, M.pluck * (e.v ?? 1), sfxStem, { rev: 0.4, del: 0.4 });
   const stemSource = (st, dest) => { const src = ctx.createBufferSource(); src.buffer = toBuffer(st); src.connect(dest); src.start(0); };
   stemSource(drumStem, drums);
   stemSource(sfxStem, sfx);
@@ -369,26 +392,26 @@ async function renderSoundtrack(S = SCORE, onProgress = () => {}) {
   };
 
   // Pads: four voices of five detuned saws, spread across the stereo field.
-  {
+  if (S.chordTL && S.chordTL.length) {
     const vca = ctx.createGain(); vca.gain.value = 0;
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 0.8;
     lp.connect(vca); vca.connect(duck);
     const pr = ctx.createGain(); pr.gain.value = 0.45; vca.connect(pr).connect(revSend);
-    auto(vca.gain, S.padLevel.map(([t, v]) => [t, v * 0.05]));
+    auto(vca.gain, S.padLevel.map(([t, v]) => [t, v * M.pads]));
     auto(lp.frequency, S.padCut, true);
     const detunes = [-14, -6, 0, 7, 15], pans = [-0.85, -0.4, 0, 0.45, 0.9];
     const panners = pans.map((p) => { const n = ctx.createStereoPanner(); n.pan.value = p; n.connect(lp); return n; });
     for (let v = 0; v < 4; v++) {
       detunes.forEach((dt, k) => {
         const o = ctx.createOscillator(); o.type = 'sawtooth'; o.detune.value = dt;
-        for (const [t, name] of CHORD_TL) o.frequency.setValueAtTime(freq(CHORDS[name][v]), t);
-        o.connect(panners[k]); o.start(0); o.stop(DURATION + 0.4);
+        for (const [t, notes] of S.chordTL) o.frequency.setValueAtTime(mtof(notes[v]), t);
+        o.connect(panners[k]); o.start(0); o.stop(DUR + 0.4);
       });
     }
-    // A sub-octave sine on the root keeps the pads warm.
+    // A sub-octave sine on the lowest voice keeps the pads warm.
     const sub = ctx.createOscillator(); sub.type = 'sine';
-    for (const [t, name] of CHORD_TL) sub.frequency.setValueAtTime(freq(CHORDS[name][0]) / 2, t);
-    const sg = ctx.createGain(); sg.gain.value = 0.5; sub.connect(sg).connect(lp); sub.start(0); sub.stop(DURATION + 0.4);
+    for (const [t, notes] of S.chordTL) sub.frequency.setValueAtTime(mtof(notes[0]) / 2, t);
+    const sg = ctx.createGain(); sg.gain.value = 0.5; sub.connect(sg).connect(lp); sub.start(0); sub.stop(DUR + 0.4);
   }
 
   // Mono synth with filter + amp envelopes driven by setTargetAtTime chains.
@@ -401,12 +424,12 @@ async function renderSoundtrack(S = SCORE, onProgress = () => {}) {
     if (rev) { const r = ctx.createGain(); r.gain.value = rev; vca.connect(r).connect(revSend); }
     if (del) { const d = ctx.createGain(); d.gain.value = del; vca.connect(d).connect(dIn); }
     let lfo = null;
-    if (vibrato) { lfo = ctx.createOscillator(); lfo.frequency.value = 5.3; const lg = ctx.createGain(); lg.gain.value = vibrato; lfo.connect(lg); lfo.start(0); lfo.stop(DURATION + 0.4); lfo = lg; }
+    if (vibrato) { lfo = ctx.createOscillator(); lfo.frequency.value = 5.3; const lg = ctx.createGain(); lg.gain.value = vibrato; lfo.connect(lg); lfo.start(0); lfo.stop(DUR + 0.4); lfo = lg; }
     const os = oscs.map(([type, detune, g, oct = 0]) => {
       const o = ctx.createOscillator(); o.type = type; o.detune.value = detune + oct * 1200;
       const og = ctx.createGain(); og.gain.value = g; o.connect(og).connect(env);
       if (lfo) lfo.connect(o.detune);
-      o.start(0); o.stop(DURATION + 0.4);
+      o.start(0); o.stop(DUR + 0.4);
       return o;
     });
     return (t, note, dur, v = 1) => {
@@ -419,27 +442,31 @@ async function renderSoundtrack(S = SCORE, onProgress = () => {}) {
       env.frequency.setTargetAtTime(cutBase, t + 0.01, fDecay);
     };
   };
+  const progressAt = { bass: 0.45, arp: 0.6, lead: 0.65 };
+  for (const name of ['bass', 'arp', 'lead']) {
+    const events = ev(name);
+    if (events.length) {
+      const cfg = Object.assign({}, V[name], { dest: duck });
+      if (typeof cfg.sweep === 'string') cfg.sweep = S[cfg.sweep];
+      const voice = mono(cfg);
+      for (const e of events) voice(e.t, e.note, e.dur, e.v ?? 1);
+    }
+    onProgress(progressAt[name]);
+  }
 
-  const bass = mono({ oscs: [['sawtooth', 0, 0.6], ['square', 7, 0.35], ['sine', 0, 0.9, -1]], q: 5, cutBase: 160, cutPeak: 1900, fDecay: 0.07, sustain: 0.8, release: 0.03, gain: 0.34, dest: duck });
-  for (const e of S.bass) bass(e.t, e.note, e.dur, e.v);
-  onProgress(0.45);
-  const arp = mono({ oscs: [['square', -6, 0.5], ['sawtooth', 6, 0.5]], q: 6, cutBase: 500, cutPeak: 5200, fDecay: 0.06, sustain: 0.35, release: 0.04, gain: 0.11, dest: duck, rev: 0.35, del: 0.55, sweep: S.arpCut });
-  for (const e of S.arp) arp(e.t, e.note, e.dur, e.v);
-  onProgress(0.6);
-  const lead = mono({ oscs: [['sawtooth', -11, 0.4], ['sawtooth', 0, 0.4], ['sawtooth', 12, 0.4], ['square', 0, 0.2, -1]], q: 1.5, cutBase: 1400, cutPeak: 5200, fDecay: 0.25, attack: 0.006, sustain: 0.8, release: 0.12, gain: 0.13, glide: 0.018, dest: duck, rev: 0.5, del: 0.45, vibrato: 9 });
-  for (const e of S.lead) lead(e.t, e.note, e.dur, e.v);
-
-  // Intro drone: a slow A that breathes in.
-  {
-    const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = freq('A1');
-    const g = ctx.createGain(); g.gain.setValueAtTime(0, 0); g.gain.linearRampToValueAtTime(0.13, 2.5); g.gain.linearRampToValueAtTime(0.1, 7.9); g.gain.linearRampToValueAtTime(0, 8.2);
-    o.connect(g).connect(music); o.start(0); o.stop(8.5);
+  // Drones: a held note with a gain envelope.
+  for (const d of S.drone || []) {
+    const o = ctx.createOscillator(); o.type = d.type || 'triangle'; o.frequency.value = mtof(d.note);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(d.env[0][1], d.env[0][0]);
+    for (let i = 1; i < d.env.length; i++) g.gain.linearRampToValueAtTime(d.env[i][1], d.env[i][0]);
+    o.connect(g).connect(music); o.start(d.env[0][0]); o.stop(d.env[d.env.length - 1][0] + 0.3);
   }
 
   onProgress(0.7);
   // Report progress while rendering by suspending at intervals.
-  for (let t = 5; t < DURATION; t += 5) {
-    ctx.suspend(t).then(() => { onProgress(0.7 + 0.3 * (t / DURATION)); ctx.resume(); });
+  for (let t = 5; t < DUR; t += 5) {
+    ctx.suspend(t).then(() => { onProgress(0.7 + 0.3 * (t / DUR)); ctx.resume(); });
   }
   const out = await ctx.startRendering();
   onProgress(1);

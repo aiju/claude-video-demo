@@ -1,7 +1,7 @@
-// Offline, frame-exact render of the animation + soundtrack to an MP4.
+// Offline, frame-exact render of a video page + its soundtrack to an MP4.
 // Requires Node 18+, `npm install` (Playwright) and ffmpeg on PATH.
 //
-//   node tools/render-video.mjs --w 1920 --h 1080 --fps 60 --out next-token.mp4
+//   node tools/render-video.mjs videos/next-token/index.html --w 1920 --h 1080 --fps 60 --out next-token.mp4
 //
 // Options: --w --h --fps --out --start --end --workers --crf (default 20; the film
 // grain makes low CRFs very large) --gpu (use the real GPU
@@ -11,10 +11,10 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { fileURLToPath } from 'url';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const args = Object.fromEntries(process.argv.slice(2).join(' ').split('--').filter(Boolean).map((s) => {
+const argv = process.argv.slice(2);
+const pagePath = argv.find((a) => /\.html?$/.test(a)) || 'videos/next-token/index.html';
+const args = Object.fromEntries(argv.filter((a) => a !== pagePath).join(' ').split('--').filter(Boolean).map((s) => {
   const [k, ...v] = s.trim().split(/\s+/);
   return [k, v.length ? v.join(' ') : true];
 }));
@@ -33,7 +33,7 @@ const browser = await chromium.launch({ args: launchArgs });
 async function openPage() {
   const page = await browser.newPage({ viewport: { width: W, height: H } });
   page.on('pageerror', (e) => console.error('[pageerror]', e.message));
-  await page.goto(`file://${root}/index.html?render&w=${W}&h=${H}`);
+  await page.goto(`file://${path.resolve(pagePath)}?render&w=${W}&h=${H}`);
   await page.waitForFunction(() => window.__ready === true, null, { timeout: 120000 });
   return page;
 }

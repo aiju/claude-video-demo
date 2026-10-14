@@ -135,3 +135,29 @@ function pulse(arr, t, decay = 8) {
   const i = lastIndex(arr, t);
   return i < 0 ? 0 : Math.exp(-(t - arr[i]) * decay);
 }
+
+// 1 inside [t0, t1], with smooth fades of length fi / fo at the edges.
+function win(t, t0, t1, fi = 0.25, fo = fi) { return sstep(t0, t0 + fi, t) * (1 - sstep(t1 - fo, t1, t)); }
+
+// Monotone cubic interpolation through (xs, ys): for camera paths that must hit
+// exact positions at exact (musical) times without overshooting.
+function monotoneSpline(xs, ys) {
+  const n = xs.length, d = [], m = new Array(n);
+  for (let i = 0; i < n - 1; i++) d.push((ys[i + 1] - ys[i]) / (xs[i + 1] - xs[i]));
+  m[0] = d[0]; m[n - 1] = d[n - 2];
+  for (let i = 1; i < n - 1; i++) m[i] = d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2;
+  for (let i = 0; i < n - 1; i++) {
+    if (d[i] === 0) { m[i] = m[i + 1] = 0; continue; }
+    const a = m[i] / d[i], b = m[i + 1] / d[i], s = a * a + b * b;
+    if (s > 9) { const k = 3 / Math.sqrt(s); m[i] = k * a * d[i]; m[i + 1] = k * b * d[i]; }
+  }
+  return (x) => {
+    if (x <= xs[0]) return ys[0] + m[0] * (x - xs[0]);
+    if (x >= xs[n - 1]) return ys[n - 1] + m[n - 1] * (x - xs[n - 1]);
+    let i = 0;
+    while (x > xs[i + 1]) i++;
+    const h = xs[i + 1] - xs[i], u = (x - xs[i]) / h;
+    const h00 = 2 * u ** 3 - 3 * u * u + 1, h10 = u ** 3 - 2 * u * u + u, h01 = -2 * u ** 3 + 3 * u * u, h11 = u ** 3 - u * u;
+    return h00 * ys[i] + h10 * h * m[i] + h01 * ys[i + 1] + h11 * h * m[i + 1];
+  };
+}

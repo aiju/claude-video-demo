@@ -44,10 +44,10 @@ function sceneAttention(R, t) {
     const p = tokPos(i), col = TOKEN_COLS[i];
     const pop = ease.outBack(range(t, 24.0 + i * 0.06, 24.4 + i * 0.06), 2);
     R.sprite(p, (1.2 + kick * 0.4) * glowGain, col, 0.6 * pop, 0);
-    drawChip(R, PROMPT_TOKENS[i].text, p, 0.62 * pop, col, pop, { outline: 1.2 * glowGain });
+    tokChip(R, PROMPT_TOKENS[i].text, p, 0.62 * pop, col, pop, { outline: 1.2 * glowGain });
     if (fly > 0) R.line(p, vadd(p, [0, 0, 6 + fly * 20]), col, col, 0.12, 1.2, 0);
   }
-  shockwave(R, [0, 0, 0], t, 24.0, { size: 22, life: 0.8, color: COL.cyan });
+  shockwave(R, [0, 0, 0], t, 24.0, { size: 22, life: 0.8, color: COL.cyan, alpha: 1.2 });
 
   // ---- Q / K / V ----
   const qkvA = sstep(24.5, 24.8, t) * (1 - sstep(25.9, 26.3, t));
