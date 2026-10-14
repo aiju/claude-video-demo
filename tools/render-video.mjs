@@ -3,7 +3,8 @@
 //
 //   node tools/render-video.mjs --w 1920 --h 1080 --fps 60 --out next-token.mp4
 //
-// Options: --w --h --fps --out --start --end --workers --crf --gpu (use the real GPU
+// Options: --w --h --fps --out --start --end --workers --crf (default 20; the film
+// grain makes low CRFs very large) --gpu (use the real GPU
 // instead of SwiftShader; much faster where available).
 import { chromium } from 'playwright';
 import { spawn } from 'child_process';
@@ -20,7 +21,7 @@ const args = Object.fromEntries(process.argv.slice(2).join(' ').split('--').filt
 const W = +(args.w || 1920), H = +(args.h || 1080), FPS = +(args.fps || 60);
 const START = +(args.start || 0), END = +(args.end || 60);
 const OUT = path.resolve(args.out || 'next-token.mp4');
-const WORKERS = +(args.workers || 2), CRF = +(args.crf || 16);
+const WORKERS = +(args.workers || 2), CRF = +(args.crf || 20);
 const launchArgs = args.gpu ? ['--ignore-gpu-blocklist', '--enable-gpu'] : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'next-token-'));
