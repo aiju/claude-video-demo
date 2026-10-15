@@ -7,6 +7,8 @@ dependencies.
 - **`kit/`**: the reusable engine (renderer with bloom and neon SDF text, effects,
   score builder, synth, player, HUD). API on one page: [`kit/API.md`](kit/API.md).
 - **`videos/next-token/`**: *Next Token*, a 60-second trip through a language model.
+- **`videos/clawd-day/`**: *Clawd's Day*, a playful 60-second day in the life of Clawd
+  (wake up, coffee, deep work, a crab rave, ship it, counting sheep).
 - **`videos/_template/`**: a 20-second starter that runs as-is; copy it to start a new video.
 - **`tools/`**: dev server with live reload, a one-shot visual/audio checker, a
   single-file builder (for sharing or Artifacts), and an MP4 renderer.
