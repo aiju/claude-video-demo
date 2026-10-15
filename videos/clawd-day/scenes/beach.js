@@ -83,7 +83,7 @@ function sceneBeach(R, t) {
     for (let i = 0; i < 6; i++) {
       const x0 = -6 + i * 2.4, an = -Math.PI / 2 + Math.sin(t * 1.8 + i * 1.3) * 0.55;
       const end = [x0 + Math.cos(an) * 9, 5 + Math.sin(an) * 9, -0.5];
-      const col = ACCENTS[(i + Math.floor((t - 34) * 2)) % ACCENTS.length];
+      const col = ACCENTS[(i + Math.floor(Math.max(0, t - 34) * 2)) % ACCENTS.length];
       R.line([x0, 5, -0.5], end, col, col, 0.45, 0.22 * rave * (1 + kick), 0.02);
       R.sprite([end[0], Math.max(end[1], SAND_Y - 0.6), -0.4], 1.2, col, 0.18 * rave * (1 + kick), 0);
     }
@@ -148,7 +148,7 @@ function sceneBeach(R, t) {
     const beatHit = pulse(T.bigKick, t, 12);
     popText(R, 'CRAB RAVE', [0, 2.15, 0.6], 1.1 * (1 + 0.06 * beatHit), COL.white, t, 34.0, 1e9, {
       tracking: 0.06, glow: 0.5,
-      fx: (i, ch, s) => { s.color = cmul(ACCENTS[(i + Math.floor((t - 34) * 4)) % ACCENTS.length], 1.25); s.dy += Math.sin(t * 8 + i * 0.7) * 0.08; },
+      fx: (i, ch, s) => { s.color = cmul(ACCENTS[(i + Math.floor(Math.max(0, t - 34) * 4)) % ACCENTS.length], 1.25); s.dy += Math.sin(t * 8 + i * 0.7) * 0.08; },
     });
     confetti(R, t, 34.0, { n: 70, seed: 21 });
     R.use('add');
