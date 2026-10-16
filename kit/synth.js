@@ -464,9 +464,12 @@ async function renderSoundtrack(S, onProgress = () => {}) {
   }
 
   onProgress(0.7);
-  // Report progress while rendering by suspending at intervals.
-  for (let t = 5; t < DUR; t += 5) {
-    ctx.suspend(t).then(() => { onProgress(0.7 + 0.3 * (t / DUR)); ctx.resume(); });
+  // Report progress while rendering by suspending at intervals. Firefox has no
+  // OfflineAudioContext.suspend(), so there it renders without progress updates.
+  if (typeof ctx.suspend === 'function') {
+    for (let t = 5; t < DUR; t += 5) {
+      ctx.suspend(t).then(() => { onProgress(0.7 + 0.3 * (t / DUR)); ctx.resume(); }).catch(() => {});
+    }
   }
   const out = await ctx.startRendering();
   onProgress(1);

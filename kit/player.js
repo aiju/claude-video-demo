@@ -247,7 +247,7 @@
         ui.status.textContent = `sound ready (${((performance.now() - t0) / 1000).toFixed(1)} s)`;
         P.upgrade(); updateBadge();
       })
-      .catch((e) => { console.error(e); ui.status.textContent = 'audio unavailable, playing silently'; });
+      .catch((e) => { console.error(e); ui.status.textContent = `audio unavailable (${e && e.message ? e.message : e}), playing silently`; });
 
     // ---- controls ----
     V.sections.forEach((s) => {
