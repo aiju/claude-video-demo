@@ -7,6 +7,8 @@ dependencies.
 - **`kit/`**: the reusable engine (renderer with bloom and neon SDF text, effects,
   score builder, synth, player, HUD). API on one page: [`kit/API.md`](kit/API.md).
 - **`videos/next-token/`**: *Next Token*, a 60-second trip through a language model.
+- **`videos/sand-to-gpu/`**: *Sand to GPU*, the path from raw silicon to a GPU as a
+  60-second (not very serious) propaganda poster.
 - **`videos/_template/`**: a 20-second starter that runs as-is; copy it to start a new video.
 - **`tools/`**: dev server with live reload, a one-shot visual/audio checker, a
   single-file builder (for sharing or Artifacts), and an MP4 renderer.
@@ -65,3 +67,24 @@ finishes itself one token per beat. 120 BPM, A minor, 30 bars.
 | 36–46 s | Layers | flight through 32 blocks, each passing on the beat, with a "logit lens" guess |
 | 46–52 s | Softmax | 50k-logit spectrum, softmax collapse, a probability wheel picks the token |
 | 52–60 s | Generate | autoregressive appends, each attending back over the sentence; collapse to a cursor |
+
+## Sand to GPU
+
+A five-year plan in sixty seconds, in the style of a screen-printed propaganda
+poster: flat inks on cream paper (crisp sprite shapes 8–12 in the alpha layers,
+colours run through an inverse tonemap so the hex values land on screen), a
+D-minor march that turns to D major when the GPU is born. 120 BPM, 30 bars.
+
+| Time | Chapter | What you see |
+| --- | --- | --- |
+| 0–8 s | Sand | *Comrades!* A heap of sand under a rising red sun; one grain is chosen for greatness |
+| 8–16 s | Purify | impurities kicked out of the silicon lattice, purity counter climbs to nine nines, melt |
+| 16–24 s | Grow | the drop: a Czochralski ingot pulled from the melt (*Pull together, comrades!*) |
+| 24–30 s | Slice | a diamond-wire saw cuts the ingot into wafers, one per half bar |
+| 30–40 s | Print | 13.5 nm light exposes the wafer row by row, 80 layers, zoom into a die |
+| 40–46 s | Inspect | approved, approved, approved… one die is reassigned to the mid-range (binning) |
+| 46–54 s | Assemble | die + six HBM stacks on a package, into a card, held aloft: *Glory to the GPU!* |
+| 54–60 s | Multiply | *Workers of the world, multiply!* while a 3×3 matrix product fills in |
+
+`tools/check.mjs` flags most of its frames as "blown out": its brightness
+heuristic assumes dark backgrounds, and the paper here is meant to be light.

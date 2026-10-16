@@ -62,8 +62,38 @@ void main() {
     float d = sdRoundBox(p, b - 0.22, 0.32);
     float px = fwidth(d);
     a = smoothstep(px, -px, d);
-  } else {               // 7: horizontal streak
+  } else if (s == 7) {   // horizontal streak
     a = exp(-uv.y * uv.y * 30.0) * (1.0 - abs(uv.x)) ;
+  } else if (s == 8) {   // crisp five-point star, point up (extra = inner radius ratio, default .4)
+    float rf = vExtra > 0.0 ? vExtra : 0.4;
+    vec2 p = vec2(abs(uv.x), uv.y);
+    const vec2 k1 = vec2(0.809016994, -0.587785252), k2 = vec2(-0.809016994, -0.587785252);
+    p -= 2.0 * max(dot(k1, p), 0.0) * k1;
+    p -= 2.0 * max(dot(k2, p), 0.0) * k2;
+    p.x = abs(p.x); p.y -= 0.97;
+    vec2 ba = rf * vec2(0.587785252, 0.809016994) - vec2(0.0, 1.0);
+    float hh = clamp(dot(p, ba) / dot(ba, ba), 0.0, 0.97);
+    float d = length(p - ba * hh) * sign(p.y * ba.x - p.x * ba.y);
+    float px = fwidth(d);
+    a = smoothstep(px, -px, d);
+  } else if (s == 9) {   // crisp wedge: apex at local x = -1, base (full height) at x = +1
+    float f = max(abs(uv.y) - (uv.x + 1.0) * 0.5, uv.x - 1.0 + 1.5 * fwidth(uv.x));
+    float px = fwidth(f);
+    a = smoothstep(px, -px, f);
+  } else if (s == 10) {  // crisp gear with an axle hole (extra = number of teeth, default 10)
+    float n = vExtra > 0.5 ? vExtra : 10.0;
+    float tooth = smoothstep(-0.3, 0.3, cos(atan(uv.y, uv.x) * n));
+    float d = max(r - (0.76 + 0.2 * tooth), 0.3 - r);
+    float px = fwidth(r) * 1.2;
+    a = smoothstep(px, -px, d);
+  } else if (s == 11) {  // crisp sharp-cornered rectangle (stretch = aspect); stays visible when thin
+    vec2 cov = clamp((1.0 - abs(uv)) / fwidth(uv) + 0.5, 0.0, 1.0);
+    a = cov.x * cov.y;
+  } else {               // 12: crisp thick ring / annulus (extra = thickness, default .2)
+    float th = vExtra > 0.0 ? vExtra : 0.2;
+    float d = abs(r - (1.0 - th * 0.5)) - th * 0.5 + fwidth(r);
+    float px = fwidth(r);
+    a = smoothstep(px, -px, d);
   }
   o = vec4(vColor.rgb * vColor.a * a, vColor.a * a);
 }`;

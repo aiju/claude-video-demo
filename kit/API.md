@@ -42,7 +42,7 @@ pump on strong kicks. `hud` draws chapter label, caption, timecode, a spectrum.
 | --- | --- |
 | `R.setCamera(pos, target, up=[0,1,0], fov=50)` | once per frame |
 | `R.use(layer)` | `'under'` (alpha) → `'add'` (default) → `'over'` (alpha) → `'top'` → `'hudUnder'` (alpha) → `'hud'`. Reset to `'add'` after. |
-| `R.sprite(p, size, rgb, a=1, shape=0, rot=0, stretch=1)` | camera-facing quad, half-size `size`. Shapes: 0 glow orb · 1 ring · 2 rounded cell/bar (stretch = aspect) · 3 crisp disc · 4 lens-flare star · 5 rounded-rect outline · 6 rounded-rect fill · 7 streak |
+| `R.sprite(p, size, rgb, a=1, shape=0, rot=0, stretch=1, extra=0)` | camera-facing quad, half-size `size`. Shapes: 0 glow orb · 1 ring · 2 rounded cell/bar (stretch = aspect) · 3 crisp disc (stretch → ellipse) · 4 lens-flare star · 5 rounded-rect outline · 6 rounded-rect fill · 7 streak. Crisp flat fills (for alpha layers / print looks): 8 five-point star (extra = inner ratio, .4) · 9 wedge, apex at local −x (sunburst rays, blades) · 10 gear (extra = teeth, 10) · 11 sharp rect · 12 thick ring (extra = thickness, .2) |
 | `R.line(a, b, rgbA, rgbB, width, alphaA=1, alphaB=alphaA)` | glowing beam, width in world units (≥1.2 px) |
 | `R.polyline(pts, rgb, width, a0=1, a1=1, rgb1)` | |
 | `R.text(str, p, size, rgb, opts)` → width | SDF neon text, billboarded. opts: `font:'mono'\|'disp'`, `align:-1\|0\|1`, `glow`, `alpha`, `tracking`, `hot`, `fx(i, ch, s, n)` per-char hook (set `s.ch, s.dx, s.dy, s.dz, s.scale, s.alpha, s.color, s.rot, s.glow`) |
